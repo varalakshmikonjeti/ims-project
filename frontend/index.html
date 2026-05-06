@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Incident Dashboard</title>
+</head>
+<body>
+
+<h1>Incident Dashboard</h1>
+
+<button onclick="loadIncidents()">Refresh</button>
+
+<h3>Create Signal</h3>
+<input id="component" placeholder="Component ID (e.g. DB-1)">
+<input id="severity" placeholder="Severity (HIGH/MEDIUM/LOW)">
+<button onclick="sendSignal()">Send</button>
+
+<h3>Incidents</h3>
+<ul id="incidents"></ul>
+
+<h3>Selected Incident</h3>
+<p id="selected"></p>
+
+<h3>Add RCA</h3>
+<input id="root" placeholder="Root Cause">
+<input id="fix" placeholder="Fix">
+<input id="prevention" placeholder="Prevention">
+<button onclick="submitRCA()">Submit RCA</button>
+
+<h3>Update Status</h3>
+<input id="status" placeholder="OPEN/INVESTIGATING/RESOLVED/CLOSED">
+<button onclick="updateStatus()">Update</button>
+
+<script>
+let selectedIncident = null;
+
+async function sendSignal() {
+    const component = document.getElementById("component").value;
+    const severity = document.getElementById("severity").value;
+
+    const res = await fetch("http://localhost:8000/ingest", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            component_id: component,
+            severity: severity
+        })
+    });
+
+    const data = await res.json();
+    alert("Created Incident: " + data.incident_id);
+
+    loadIncidents();
+}
+
+async function loadIncidents() {
+    const res = await fetch("http://localhost:8000/incidents");
+    const data = await res.json();
+
+    const list = document.getElementById("incidents");
+    list.innerHTML = "";
+
+    data.forEach(item => {
+        const li = document.createElement("li");
+        li.innerText = item.id + " | " + item.component_id + " | " + item.status;
+        li.onclick = () => selectIncident(item.id);
+        list.appendChild(li);
+    });
+}
+
+function selectIncident(id) {
+    selectedIncident = id;
+    document.getElementById("selected").innerText = id;
+}
+
+async function submitRCA() {
+    if (!selectedIncident) {
+        alert("Select incident first");
+        return;
+    }
+
+    const res = await fetch(`http://localhost:8000/incidents/${selectedIncident}/rca`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            root_cause: document.getElementById("root").value,
+            fix: document.getElementById("fix").value,
+            prevention: document.getElementById("prevention").value
+        })
+    });
+
+    alert("RCA submitted");
+}
+
+async function updateStatus() {
+    if (!selectedIncident) {
+        alert("Select incident first");
+        return;
+    }
+
+    const res = await fetch(`http://localhost:8000/incidents/${selectedIncident}/status`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            status: document.getElementById("status").value
+        })
+    });
+
+    alert("Status updated");
+    loadIncidents();
+}
+</script>
+
+</body>
+</html>
